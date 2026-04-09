@@ -11,7 +11,7 @@ API HTTP em **Node.js** + **TypeScript** que expõe um endpoint para validar sen
 | **POST** validação | `/v1/password-validations` |
 | **GET** health | `/health` → `{ "status": "ok" }` |
 | **Dev** | `npm install` → `npm run dev` |
-| **Produção** | `npm run build` → `npm start` |
+| **Produção** | `npm run build` → `npm start` (ou imagem Docker, ver [seção 8](#8-pré-requisitos-instalação-e-execução)) |
 | **Testes** | `npm test` · `npm run test:coverage` |
 | **Node** | ≥ 20 (`engines` no `package.json`) |
 
@@ -26,7 +26,7 @@ API HTTP em **Node.js** + **TypeScript** que expõe um endpoint para validar sen
 5. [Fluxo de uma requisição](#5-fluxo-de-uma-requisição)
 6. [API HTTP](#6-api-http)
 7. [Regras de negócio](#7-regras-de-negócio)
-8. [Pré-requisitos, instalação e execução](#8-pré-requisitos-instalação-e-execução)
+8. [Pré-requisitos, instalação e execução](#8-pré-requisitos-instalação-e-execução) (inclui Docker e notas AWS)
 9. [Testes](#9-testes)
 10. [Configuração TypeScript e build](#10-configuração-typescript-e-build)
 11. [Uso de IA](#11-uso-de-ia)
@@ -82,7 +82,7 @@ Regra: **`domain` não importa** `application`, `infrastructure` nem `interfaces
 
 - **`composition-root.ts`:** “raiz de composição” — instancia implementações e o caso de uso (wiring).
 - **`app.ts`:** monta rotas + `createHttpApp`.
-- **`server.ts`:** ponto de entrada do processo (`listenAvailable`), banner human-readable no terminal e **encerramento gracioso** em `SIGINT`, `SIGTERM` e `SIGHUP`.
+- **`server.ts`:** ponto de entrada do processo — com `PORT` definida escuta nessa porta; sem `PORT`, `listenAvailable` a partir de 3000; banner human-readable no terminal e **encerramento gracioso** em `SIGINT`, `SIGTERM` e `SIGHUP`.
 
 ---
 
@@ -141,12 +141,15 @@ Pontos a considerar em evoluções do serviço (não implementados no escopo atu
 | `.env.example` | Notas sobre execução (sem variáveis obrigatórias; o Node não carrega `.env` sozinho). |
 | `.gitignore` | Ignora `node_modules`, `dist`, etc. |
 | `README.md` | Esta documentação. |
+| `Dockerfile` | Imagem multi-stage (build TypeScript + runtime Node 20); `PORT` padrão **3000** (igual ao `npm run dev`); `HEALTHCHECK` em `GET /health`. |
+| `docker-compose.yml` | Sobe o serviço com build da imagem e mapeamento `3000:3000`. |
+| `.dockerignore` | Reduz contexto de build (exclui `node_modules`, testes, markdown). |
 
 ### `src/` — aplicação
 
 | Arquivo | Função |
 |---------|--------|
-| **`server.ts`** | Chama `buildApplication()`, escuta em **`0.0.0.0`** com **`listenAvailable`** a partir da porta **3000**; tenta portas consecutivas até **10.000** tentativas (ex.: `EADDRINUSE`); loga `server_listening` com a porta efetiva; imprime banner via `printServerReady`; registro de sinais para shutdown ordenado. |
+| **`server.ts`** | Chama `buildApplication()`, escuta em **`0.0.0.0`**. Se a variável de ambiente **`PORT`** estiver definida, usa **`listen`** nessa porta (contêiner / nuvem). Caso contrário, usa **`listenAvailable`** a partir de **3000** até **10.000** tentativas (ex.: `EADDRINUSE`). Loga `server_listening` com a porta efetiva; imprime banner via `printServerReady`; registro de sinais para shutdown ordenado. |
 | **`app.ts`** | Cria `logger`, `ValidatePasswordUseCase`, handler de validação, registra rotas em `createHttpApp`. Exporta `buildApplication()` para testes. |
 | **`composition-root.ts`** | `createValidatePasswordUseCase()` — injeta `DeterministicPasswordAssistant`. |
 
@@ -327,9 +330,44 @@ npm start
 ### Porta e host
 
 - **Host:** fixo em **`0.0.0.0`** (todas as interfaces; acesse como `http://localhost:<porta>` na sua máquina).
-- **Porta:** não é necessário configurar arquivo `.env`. O servidor tenta **`3000`**, e se estiver em uso tenta **`3001`**, **`3002`**, e assim por diante, até **10.000** tentativas consecutivas; se nenhuma estiver livre nesse intervalo, o processo encerra com erro. A porta efetiva aparece no log **`server_listening`** e no banner ao subir.
+- **Porta (desenvolvimento local):** sem variável **`PORT`**, o servidor tenta **`3000`**, e se estiver em uso tenta **`3001`**, **`3002`**, e assim por diante, até **10.000** tentativas; se nenhuma estiver livre, o processo encerra com erro.
+- **Porta (Docker / AWS App Runner / ECS / etc.):** defina **`PORT`** no ambiente (a imagem Docker usa **`PORT=3000`** por padrão, alinhado ao **`npm run dev`**). Com **`PORT`** definida, o processo escuta **somente** essa porta (sem avançar para a próxima). Em provedores que injetam outra porta (ex.: **8080** na App Runner), use o valor que a plataforma definir.
+
+A porta efetiva aparece no log **`server_listening`** e no banner ao subir. Detalhes em **`.env.example`**.
 
 Os exemplos `curl` neste README usam `3000`; se o processo tiver escolhido outra porta, ajuste a URL ou use a porta indicada no log ou no banner.
+
+### Docker e AWS (App Runner, ECS Fargate, ECR)
+
+Este serviço já expõe **`GET /health`** (`{ "status": "ok" }`), adequado para health checks de load balancer e para o **`HEALTHCHECK`** da imagem.
+
+**Build e execução local com Docker:**
+
+```bash
+docker build -t password-validation-service:local .
+docker run --rm -p 3000:3000 password-validation-service:local
+# Em outro terminal: curl -s http://localhost:3000/health
+```
+
+**Compose (mesma imagem e mesma porta que `npm run dev`, 3000):**
+
+```bash
+docker compose up --build
+# Em outro terminal: curl -s http://localhost:3000/health
+```
+
+Para rodar em segundo plano: `docker compose up -d --build`. Encerrar: `docker compose down`.
+
+**Variáveis úteis no contêiner:**
+
+| Variável | Descrição |
+|----------|-----------|
+| **`PORT`** | Porta HTTP (padrão na imagem e no Compose: **3000**, igual ao dev local). Plataformas como **AWS App Runner** podem injetar outro valor de `PORT` automaticamente. |
+| **`NODE_ENV`** | `production` na imagem; hoje não altera o comportamento do servidor, apenas convenção para ferramentas. |
+
+**AWS App Runner:** crie um serviço a partir desta imagem (ECR ou repositório conectado), configure o health check HTTP no path **`/health`** se a plataforma permitir override (a imagem também define `HEALTHCHECK` interno).
+
+**AWS Lambda:** o modelo atual é um **processo HTTP long-lived** (`node:http`). Para Lambda seria necessário um **adaptador** (API Gateway HTTP API + função com bootstrap diferente ou **Lambda Web Adapter** em imagem de contêiner). O caminho mais direto para este repositório é **App Runner** ou **ECS** com a mesma imagem.
 
 ---
 

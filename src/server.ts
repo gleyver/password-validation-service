@@ -1,16 +1,33 @@
 import process from "node:process";
 import { buildApplication } from "./app.js";
 import { printServerReady } from "./platform/logging/print-server-ready.js";
+import type { HttpServerApp } from "./platform/http/http-server.js";
 
 /** Bind em todas as interfaces (acesso local via `localhost` ou IP da máquina). */
 const HOST = "0.0.0.0";
 
-/** Porta inicial; se ocupada, `listenAvailable` tenta as portas seguintes. */
-const FIRST_PORT = 3000;
+/** Porta inicial quando `PORT` não está definida; `listenAvailable` tenta as seguintes se ocupada. */
+const DEFAULT_START_PORT = 3000;
+
+function parsePort(raw: string): number {
+  const n = Number.parseInt(raw, 10);
+  if (!Number.isFinite(n) || n < 1 || n > 65535) {
+    throw new Error(`PORT inválida: ${raw}`);
+  }
+  return n;
+}
+
+async function bindHttpApp(app: HttpServerApp): Promise<{ port: number }> {
+  const raw = process.env.PORT;
+  if (raw === undefined || raw === "") {
+    return app.listenAvailable(HOST, DEFAULT_START_PORT);
+  }
+  return app.listen(parsePort(raw), HOST);
+}
 
 const { app, logger } = buildApplication();
 
-const { port } = await app.listenAvailable(HOST, FIRST_PORT);
+const { port } = await bindHttpApp(app);
 printServerReady(port, HOST);
 logger.log("info", "server_listening", { port, host: HOST });
 
