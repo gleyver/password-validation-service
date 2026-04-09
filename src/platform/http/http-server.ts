@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse, type Server } from "node:http";
 import { newRequestId, type Logger } from "../logging/logger.js";
 import type { HttpServerApp, RouteHandler } from "./http-server.dto.js";
+import { writeJsonResponse } from "./write-json-response.js";
 
 export type { HttpServerApp, RouteHandler } from "./http-server.dto.js";
 
@@ -10,6 +11,7 @@ type Route = {
   handler: RouteHandler;
 };
 
+/** Retorna o path da URL sem a query string. */
 function parseUrlPath(url: string): string {
   const q = url.indexOf("?");
   if (q === -1) {
@@ -18,6 +20,12 @@ function parseUrlPath(url: string): string {
   return url.slice(0, q);
 }
 
+/**
+ * Cria a aplicação HTTP com roteamento por método e path, `X-Request-Id` e erro JSON em falhas não tratadas.
+ * @param options.logger - Logger base; cada requisição recebe um filho com `requestId`.
+ * @param options.routes - Rotas; a primeira com método e path exatos coincide.
+ * @returns Objeto com `listen`, `listenAvailable` e `close`.
+ */
 export function createHttpApp(options: {
   logger: Logger;
   routes: Route[];
@@ -41,9 +49,7 @@ export function createHttpApp(options: {
     );
     if (!match) {
       logger.log("warn", "http_route_not_found", { method, path });
-      res.statusCode = 404;
-      res.setHeader("Content-Type", "application/json; charset=utf-8");
-      res.end(JSON.stringify({ error: "not_found" }));
+      writeJsonResponse(res, 404, { error: "not_found" });
       return;
     }
     try {
@@ -53,9 +59,7 @@ export function createHttpApp(options: {
         error: err instanceof Error ? err.message : "unknown",
       });
       if (!res.headersSent) {
-        res.statusCode = 500;
-        res.setHeader("Content-Type", "application/json; charset=utf-8");
-        res.end(JSON.stringify({ error: "internal_error" }));
+        writeJsonResponse(res, 500, { error: "internal_error" });
       }
     }
   };

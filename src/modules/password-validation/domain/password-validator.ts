@@ -1,9 +1,10 @@
 import { PasswordFailureReason } from "./password-failure-reason.js";
 import type { PasswordValidationResult } from "./password-validator.dto.js";
 
-/** Caracteres especiais aceitos pelo requisito do desafio. */
+/** Caracteres especiais permitidos pela política (além de letras e dígitos). */
 export const ALLOWED_SPECIALS = "!@#$%^&*()-+" as const;
 
+/** Comprimento mínimo da senha (caracteres). */
 export const MIN_LENGTH = 9;
 
 export type {
@@ -12,7 +13,6 @@ export type {
   PasswordValidationSuccess,
 } from "./password-validator.dto.js";
 
-/** Dígitos e letras conforme enunciado do desafio (intervalos ASCII). */
 const HAS_DIGIT = /[0-9]/;
 const HAS_LOWERCASE = /[a-z]/;
 const HAS_UPPERCASE = /[A-Z]/;
@@ -50,8 +50,8 @@ function hasAllowedSpecial(password: string): boolean {
 }
 
 /**
- * Acumula todos os motivos de falha (ordem estável) para o cliente poder exibir várias dicas.
- * Não faz early return por motivo: é intencional.
+ * Coleta todos os motivos de falha em ordem fixa.
+ * @remarks Não retorna no primeiro erro: permite expor várias dicas numa única resposta.
  */
 function collectFailureReasons(password: string): PasswordFailureReason[] {
   const reasons: PasswordFailureReason[] = [];
@@ -80,7 +80,9 @@ function collectFailureReasons(password: string): PasswordFailureReason[] {
 }
 
 /**
- * Regras do desafio: tamanho, classes de caracteres, unicidade, sem whitespace.
+ * Valida a senha contra a política (comprimento, classes de caracteres, caracteres únicos, sem espaço).
+ * @param password - Senha em texto simples.
+ * @returns Sucesso ou falha com lista de {@link PasswordFailureReason}.
  */
 export function validatePasswordPolicy(password: string): PasswordValidationResult {
   const reasons = collectFailureReasons(password);

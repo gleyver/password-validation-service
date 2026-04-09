@@ -12,13 +12,15 @@ describe("DeterministicPasswordAssistant", () => {
     assert.ok(hints[0].includes("regras"));
   });
 
-  it("mapeia código desconhecido para mensagem genérica", async () => {
-    const hints = await assistant.enrichWithHints("x", [
-      "codigo_futuro_xyz" as PasswordFailureReason,
-    ]);
-    assert.equal(hints.length, 1);
-    assert.ok(hints[0].includes("codigo_futuro_xyz"));
-    assert.ok(hints[0].includes("Regra não atendida"));
+  it("mapeia todo valor de PasswordFailureReason para mensagem não vazia", async () => {
+    const allReasons = Object.values(
+      PasswordFailureReason,
+    ) as PasswordFailureReason[];
+    for (const reason of allReasons) {
+      const hints = await assistant.enrichWithHints("x", [reason]);
+      assert.equal(hints.length, 1);
+      assert.ok(hints[0].trim().length > 0);
+    }
   });
 
   it("mapeia código conhecido", async () => {

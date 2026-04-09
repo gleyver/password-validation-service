@@ -18,18 +18,19 @@ const REASON_MESSAGES: Record<PasswordFailureReason, string> = {
   [PasswordFailureReason.EspacoEmBrancoNaoPermitido]: "Remova espaços em branco.",
 };
 
-function messageForReason(code: string): string {
-  const mapped = REASON_MESSAGES[code as PasswordFailureReason];
-  if (mapped) {
-    return mapped;
-  }
-  return `Regra não atendida: ${code}`;
+function messageForReason(reason: PasswordFailureReason): string {
+  return REASON_MESSAGES[reason];
 }
 
 /**
- * Assistente local (sem chamada externa): traduz códigos de regra em dicas legíveis.
+ * Implementação de {@link PasswordAssistantPort} sem chamadas externas: mapeia motivos em mensagens de ajuda.
  */
 export class DeterministicPasswordAssistant implements PasswordAssistantPort {
+  /**
+   * @param _password - Senha validada (não usada nesta implementação).
+   * @param reasonsWhenInvalid - Vazio quando a senha é válida e o cliente pediu dicas (mensagem de sucesso).
+   * @returns Dicas na ordem dos motivos ou uma linha confirmando que a política foi atendida.
+   */
   async enrichWithHints(
     _password: string,
     reasonsWhenInvalid: readonly PasswordFailureReason[],

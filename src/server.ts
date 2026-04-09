@@ -2,10 +2,10 @@ import process from "node:process";
 import { buildApplication } from "./app.js";
 import { printServerReady } from "./platform/logging/print-server-ready.js";
 
-/** Sempre escuta em todas as interfaces (acessível como localhost na máquina). */
+/** Bind em todas as interfaces (acesso local via `localhost` ou IP da máquina). */
 const HOST = "0.0.0.0";
 
-/** Primeira porta tentada; se estiver ocupada, tenta 3001, 3002, … */
+/** Porta inicial; se ocupada, `listenAvailable` tenta as portas seguintes. */
 const FIRST_PORT = 3000;
 
 const { app, logger } = buildApplication();
@@ -16,6 +16,10 @@ logger.log("info", "server_listening", { port, host: HOST });
 
 let shutdownStarted = false;
 
+/**
+ * Encerra o servidor HTTP e o processo. Nova chamada após início do shutdown encerra com código 1.
+ * @param signal - Sinal POSIX recebido (ex.: `SIGTERM`).
+ */
 function shutdownProcess(signal: string): void {
   if (shutdownStarted) {
     process.exit(1);

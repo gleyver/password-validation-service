@@ -1,5 +1,6 @@
 /**
- * Códigos estáveis (ASCII) emitidos por {@link validatePasswordPolicy} quando a senha é inválida.
+ * Motivos de falha da política (valores estáveis para cliente e assistente).
+ * @see {@link validatePasswordPolicy}
  */
 export enum PasswordFailureReason {
   FaltaComprimentoMinimo = "falta_comprimento_minimo",

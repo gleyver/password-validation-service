@@ -6,7 +6,10 @@ export type { JsonBodyResult } from "./json-body.dto.js";
 const DEFAULT_LIMIT = 16_384;
 
 /**
- * Lê o corpo com limite de bytes (proteção básica contra payloads grandes).
+ * Lê o corpo da requisição e faz parse JSON com limite de tamanho.
+ * @param req - Requisição HTTP (stream).
+ * @param limitBytes - Tamanho máximo do corpo em bytes (padrão 16 KiB).
+ * @returns Valor tipado ou código de erro (`payload_too_large`, `invalid_json`, `empty_body`).
  */
 export async function readJsonBody<T = unknown>(
   req: IncomingMessage,

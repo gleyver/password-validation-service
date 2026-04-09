@@ -17,6 +17,10 @@ function serialize(
   return `${JSON.stringify(payload)}\n`;
 }
 
+/**
+ * Cria um logger que grava uma linha JSON por evento, com campos base opcionais.
+ * @param baseFields - Incluídos em toda linha (ex.: `service`).
+ */
 export function createLogger(baseFields: LogFields = {}): Logger {
   const write = (level: LogLevel, message: string, fields?: LogFields) => {
     const line = serialize({ ...baseFields, level }, message, fields);
@@ -36,6 +40,7 @@ export function createLogger(baseFields: LogFields = {}): Logger {
   };
 }
 
+/** Gera um UUID v4 para correlacionar logs por requisição. */
 export function newRequestId(): string {
   return randomUUID();
 }
