@@ -125,6 +125,7 @@ Pontos a considerar em evoluções do serviço (não implementados no escopo atu
 
 - **Autenticação na API:** exigir `Authorization: Bearer <token>` (ou API key, OAuth2 *client credentials*) nos endpoints sensíveis, de modo que apenas clientes autorizados chamem a validação. Faz sentido quando a API não for pública ou quando houver cota/rastreio por cliente.
 - **Confidencialidade da senha em trânsito:** em produção, **HTTPS (TLS)** é o pilar para não expor a senha na rede; evitar tráfego HTTP sem TLS. **Criptografia adicional** no corpo (ex.: *envelope* com chave acordada, JWE) ou **mTLS** podem ser avaliados como *defense in depth* quando a política de segurança exigir. Vale notar que a validação de regras (comprimento, tipos de caractere) pressupõe que o servidor consiga interpretar o conteúdo conforme o contrato; qualquer esquema de cifragem de campo precisa ser definido em conjunto com esse contrato (incluindo onde ocorre a decriptação e como isso afeta logs e retenção).
+- **Rate limit**s
 
 ---
 
