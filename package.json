@@ -1,0 +1,21 @@
+{
+  "name": "password-validation-service",
+  "version": "1.0.0",
+  "description": "API REST para validação de senha com observabilidade (logs JSON, requestId)",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "node --import tsx src/server.ts",
+    "test": "node --import tsx --test --test-concurrency=1 src/app.test.ts src/http.integration.test.ts src/platform/http/json-body.test.ts src/platform/http/http-server.test.ts src/platform/logging/logger.test.ts src/modules/password-validation/domain/password-policy.test.ts src/modules/password-validation/domain/password-validator.test.ts src/modules/password-validation/application/validate-password.use-case.test.ts src/modules/password-validation/infrastructure/deterministic-password-assistant.test.ts",
+    "test:coverage": "node --import tsx --test --test-concurrency=1 --experimental-test-coverage src/app.test.ts src/http.integration.test.ts src/platform/http/json-body.test.ts src/platform/http/http-server.test.ts src/platform/logging/logger.test.ts src/modules/password-validation/domain/password-policy.test.ts src/modules/password-validation/domain/password-validator.test.ts src/modules/password-validation/application/validate-password.use-case.test.ts src/modules/password-validation/infrastructure/deterministic-password-assistant.test.ts"
+  },
+  "devDependencies": {
+    "@types/node": "25.5.2",
+    "tsx": "4.21.0",
+    "typescript": "6.0.2"
+  }
+}
