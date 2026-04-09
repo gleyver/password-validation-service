@@ -237,7 +237,10 @@ describe("HTTP integration", () => {
   });
 
   it("rejeita JSON inválido", async () => {
-    const { status } = await new Promise<{ status: number }>((resolve, reject) => {
+    const { status, json } = await new Promise<{
+      status: number;
+      json: unknown;
+    }>((resolve, reject) => {
       const req = request(
         {
           hostname: "127.0.0.1",
@@ -246,13 +249,29 @@ describe("HTTP integration", () => {
           method: "POST",
           headers: { "Content-Type": "application/json" },
         },
-        (r) => resolve({ status: r.statusCode ?? 0 }),
+        (r) => {
+          const chunks: Buffer[] = [];
+          r.on("data", (c) => chunks.push(c));
+          r.on("end", () => {
+            const text = Buffer.concat(chunks).toString("utf8");
+            let parsed: unknown = null;
+            if (text.length > 0) {
+              try {
+                parsed = JSON.parse(text) as unknown;
+              } catch {
+                parsed = text;
+              }
+            }
+            resolve({ status: r.statusCode ?? 0, json: parsed });
+          });
+        },
       );
       req.on("error", reject);
       req.write("{");
       req.end();
     });
     assert.equal(status, 400);
+    assert.deepEqual(json, { error: "invalid_json" });
   });
 
   it("propaga X-Request-Id na resposta", async () => {

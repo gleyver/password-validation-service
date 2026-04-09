@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { PasswordAssistantPort } from "../domain/ports/password-assistant.port.js";
+import { PasswordFailureReason } from "../domain/password-failure-reason.js";
 import { ValidatePasswordUseCase } from "./validate-password.use-case.js";
 
 class FakeAssistant implements PasswordAssistantPort {
   async enrichWithHints(
     _password: string,
-    reasonsWhenInvalid: readonly string[],
+    reasonsWhenInvalid: readonly PasswordFailureReason[],
   ): Promise<readonly string[]> {
     return reasonsWhenInvalid.length === 0 ? ["ok"] : ["hint"];
   }

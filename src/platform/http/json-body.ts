@@ -1,10 +1,9 @@
 import type { IncomingMessage } from "node:http";
+import type { JsonBodyResult } from "./json-body.dto.js";
+
+export type { JsonBodyResult } from "./json-body.dto.js";
 
 const DEFAULT_LIMIT = 16_384;
-
-export type JsonBodyResult<T> =
-  | { ok: true; value: T }
-  | { ok: false; error: "payload_too_large" | "invalid_json" | "empty_body" };
 
 /**
  * Lê o corpo com limite de bytes (proteção básica contra payloads grandes).

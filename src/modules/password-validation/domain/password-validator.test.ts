@@ -1,7 +1,19 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { MAX_PASSWORD_LENGTH } from "./password-policy.js";
-import { validatePasswordPolicy } from "./password-validator.js";
+import { PasswordFailureReason } from "./password-failure-reason.js";
+import {
+  ALLOWED_SPECIALS,
+  MIN_LENGTH,
+  validatePasswordPolicy,
+} from "./password-validator.js";
+
+describe("política exportada (constantes)", () => {
+  it("exporta MIN_LENGTH e ALLOWED_SPECIALS esperados", () => {
+    assert.equal(MIN_LENGTH, 9);
+    assert.ok(ALLOWED_SPECIALS.includes("!"));
+    assert.ok(ALLOWED_SPECIALS.length > 0);
+  });
+});
 
 describe("validatePasswordPolicy", () => {
   it("aceita senha que cumpre todas as regras", () => {
@@ -13,7 +25,7 @@ describe("validatePasswordPolicy", () => {
     const r = validatePasswordPolicy("Ab1!cdef");
     assert.equal(r.valid, false);
     if (!r.valid) {
-      assert.ok(r.reasons.some((x) => x.startsWith("comprimento_mínimo")));
+      assert.ok(r.reasons.includes(PasswordFailureReason.FaltaComprimentoMinimo));
     }
   });
 
@@ -21,7 +33,7 @@ describe("validatePasswordPolicy", () => {
     const r = validatePasswordPolicy("Abcdef!ghi");
     assert.equal(r.valid, false);
     if (!r.valid) {
-      assert.ok(r.reasons.includes("falta_dígito"));
+      assert.ok(r.reasons.includes(PasswordFailureReason.FaltaDigito));
     }
   });
 
@@ -29,7 +41,7 @@ describe("validatePasswordPolicy", () => {
     const r = validatePasswordPolicy("AB1!CDEFGH");
     assert.equal(r.valid, false);
     if (!r.valid) {
-      assert.ok(r.reasons.includes("falta_letra_minúscula"));
+      assert.ok(r.reasons.includes(PasswordFailureReason.FaltaLetraMinuscula));
     }
   });
 
@@ -37,7 +49,7 @@ describe("validatePasswordPolicy", () => {
     const r = validatePasswordPolicy("ab1!cdefgh");
     assert.equal(r.valid, false);
     if (!r.valid) {
-      assert.ok(r.reasons.includes("falta_letra_maiúscula"));
+      assert.ok(r.reasons.includes(PasswordFailureReason.FaltaLetraMaiuscula));
     }
   });
 
@@ -45,7 +57,9 @@ describe("validatePasswordPolicy", () => {
     const r = validatePasswordPolicy("Ab1cdefghi");
     assert.equal(r.valid, false);
     if (!r.valid) {
-      assert.ok(r.reasons.includes("falta_caractere_especial_permitido"));
+      assert.ok(
+        r.reasons.includes(PasswordFailureReason.FaltaCaractereEspecialPermitido),
+      );
     }
   });
 
@@ -53,7 +67,7 @@ describe("validatePasswordPolicy", () => {
     const r = validatePasswordPolicy("Ab1!cdeffa");
     assert.equal(r.valid, false);
     if (!r.valid) {
-      assert.ok(r.reasons.includes("caracteres_repetidos"));
+      assert.ok(r.reasons.includes(PasswordFailureReason.CaracteresRepetidos));
     }
   });
 
@@ -61,16 +75,9 @@ describe("validatePasswordPolicy", () => {
     const r = validatePasswordPolicy("Ab1!cdef h");
     assert.equal(r.valid, false);
     if (!r.valid) {
-      assert.ok(r.reasons.includes("espaço_em_branco_não_permitido"));
-    }
-  });
-
-  it("rejeita acima do tamanho máximo", () => {
-    const base = "a".repeat(MAX_PASSWORD_LENGTH + 1);
-    const r = validatePasswordPolicy(base);
-    assert.equal(r.valid, false);
-    if (!r.valid) {
-      assert.ok(r.reasons.includes("senha_excede_tamanho_máximo"));
+      assert.ok(
+        r.reasons.includes(PasswordFailureReason.EspacoEmBrancoNaoPermitido),
+      );
     }
   });
 });

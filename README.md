@@ -129,23 +129,27 @@ Regra: **`domain` não importa** `application`, `infrastructure` nem `interfaces
 
 | Arquivo | Função |
 |---------|--------|
-| **`platform/logging/logger.ts`** | `createLogger`, `newRequestId`, logs JSON; nível `error` vai para `stderr`. |
-| **`platform/http/http-server.ts`** | `createHttpApp`: servidor `node:http`, roteamento por método+path, `X-Request-Id`, 404, try/catch → 500; `listen`/`listenAvailable` (porta sequencial se a anterior estiver ocupada). |
-| **`platform/http/json-body.ts`** | `readJsonBody`: lê stream com limite de bytes, retorna JSON parseado ou erros (`empty_body`, `invalid_json`, `payload_too_large`). |
+| **`platform/logging/logger.dto.ts`** | DTOs / contratos: `LogLevel`, `LogFields`, `Logger`. |
+| **`platform/logging/logger.ts`** | `createLogger`, `newRequestId`, logs JSON; nível `error` vai para `stderr`; reexporta os DTOs. |
+| **`platform/http/http-server.dto.ts`** | DTOs `RouteHandler`, `HttpServerApp`. |
+| **`platform/http/http-server.ts`** | `createHttpApp`: servidor `node:http`, roteamento por método+path, `X-Request-Id`, 404, try/catch → 500; `listen`/`listenAvailable`; reexporta os DTOs. |
+| **`platform/http/json-body.dto.ts`** | DTO `JsonBodyResult<T>`. |
+| **`platform/http/json-body.ts`** | `readJsonBody`: lê stream com limite de bytes; reexporta `JsonBodyResult`. |
 
 ### `src/modules/password-validation/domain/`
 
 | Arquivo | Função |
 |---------|--------|
-| **`password-policy.ts`** | Constantes: `MIN_LENGTH`, `MAX_PASSWORD_LENGTH`, `ALLOWED_SPECIALS`. |
-| **`password-validator.ts`** | `validatePasswordPolicy(raw)`: regras do desafio; retorna `{ valid: true }` ou `{ valid: false, reasons: [...] }`. |
+| **`password-validator.dto.ts`** | DTOs `PasswordValidationSuccess`, `PasswordValidationFailure`, `PasswordValidationResult`. |
+| **`password-validator.ts`** | Constantes `MIN_LENGTH`, `ALLOWED_SPECIALS`; `validatePasswordPolicy(raw)` — regras do desafio; reexporta os DTOs. |
+| **`password-failure-reason.ts`** | Enum `PasswordFailureReason` (códigos de falha). |
 | **`ports/password-assistant.port.ts`** | Interface `PasswordAssistantPort` — porta de saída para dicas assistivas. |
 
 ### `src/modules/password-validation/application/`
 
 | Arquivo | Função |
 |---------|--------|
-| **`validate-password.dto.ts`** | Tipos de entrada/saída do caso de uso (`ValidatePasswordInput`, `ValidatePasswordOutput`). |
+| **`validate-password.dto.ts`** | DTOs `ValidatePasswordInput`, `ValidatePasswordOutput`. |
 | **`validate-password.use-case.ts`** | `ValidatePasswordUseCase.execute`: valida via domínio; opcionalmente preenche `assistantHints` pela porta. |
 
 ### `src/modules/password-validation/infrastructure/`
@@ -158,7 +162,8 @@ Regra: **`domain` não importa** `application`, `infrastructure` nem `interfaces
 
 | Arquivo | Função |
 |---------|--------|
-| **`validate-password.http.ts`** | Factory `createValidatePasswordHandler`: lê body, valida campo `password`, chama use case, devolve JSON e status. |
+| **`validate-password.http.ts`** | Factory `createValidatePasswordHandler`: lê body, valida com Zod (`validate-password-body.schema.ts`), chama use case, devolve JSON e status. |
+| **`validate-password-body.schema.ts`** | Schema Zod do body: `password` string não vazia; `includeAssistantHints` opcional (ver contrato abaixo). |
 
 ### `src/**/*.test.ts` — testes
 
@@ -169,10 +174,10 @@ Regra: **`domain` não importa** `application`, `infrastructure` nem `interfaces
 | **`platform/http/json-body.test.ts`** | Unitário | Cenários de `readJsonBody`. |
 | **`platform/http/http-server.test.ts`** | Unitário | 404, 500, query string no path. |
 | **`platform/logging/logger.test.ts`** | Unitário | Saída stdout/stderr e `newRequestId`. |
-| **`domain/password-policy.test.ts`** | Unitário | Constantes exportadas. |
-| **`domain/password-validator.test.ts`** | Unitário | Todas as regras de `validatePasswordPolicy`. |
+| **`domain/password-validator.test.ts`** | Unitário | Constantes exportadas e regras de `validatePasswordPolicy`. |
 | **`application/validate-password.use-case.test.ts`** | Unitário | Use case com assistente fake. |
 | **`infrastructure/deterministic-password-assistant.test.ts`** | Unitário | Mapeamento de dicas. |
+| **`interfaces/http/validate-password-body.schema.test.ts`** | Unitário | Contrato Zod do body (incl. `includeAssistantHints`). |
 
 ### `dist/` (gerado)
 
@@ -186,7 +191,7 @@ Saída do `tsc` — não versionar em repositórios enxutos; gerada com `npm run
 2. `http-server` gera ou repassa `requestId`, cria logger filho.
 3. Roteador chama `createValidatePasswordHandler`.
 4. `readJsonBody` lê o corpo com limite de tamanho.
-5. Handler valida `password` (string não vazia); `includeAssistantHints` só se for booleano `true`.
+5. Handler valida o body com **Zod** (`validatePasswordRequestBodySchema`): `password` obrigatório e não vazio; **`includeAssistantHints` só ativa dicas quando o JSON envia explicitamente o literal booleano `true`** (ver seção 6).
 6. `ValidatePasswordUseCase` chama `validatePasswordPolicy`; se pedido, chama `PasswordAssistantPort`.
 7. Resposta `200` com `{ valid, assistantHints? }` ou erro 4xx conforme tabela da API.
 
@@ -205,9 +210,15 @@ Saída do `tsc` — não versionar em repositórios enxutos; gerada com `npm run
 }
 ```
 
-**Sucesso (200):** `{ "valid": boolean }` e, se `includeAssistantHints === true`, `assistantHints: string[]`.
+**Campo `includeAssistantHints` (opcional)**
 
-**Erros:** ver tabela no código em `validate-password.http.ts` / README resumido: `invalid_json`, `empty_body`, `invalid_password_field`, `payload_too_large` (413).
+- **Omissão** do campo, **`false`**, **`null`**, strings, números ou qualquer valor que não seja o literal JSON **`true`** (boolean) são tratados como *desligado*: a API **não** inclui `assistantHints` na resposta (comportamento idêntico a “não pedir dicas”).
+- Somente **`"includeAssistantHints": true`** no JSON (tipo boolean, não string) habilita o assistente: a resposta pode trazer `assistantHints` (lista de mensagens em português).
+- Isso evita ambiguidade com clientes que enviam `"true"` em aspas ou `1` esperando o mesmo efeito: nesses casos as dicas **não** são ativadas.
+
+**Sucesso (200):** `{ "valid": boolean }` e, se as dicas foram solicitadas conforme acima, `assistantHints: string[]`.
+
+**Erros:** `invalid_json`, `empty_body`, `invalid_password_field`, `payload_too_large` (413) — validação na borda em `validate-password-body.schema.ts` + `readJsonBody`.
 
 ### `GET /health`
 
@@ -245,7 +256,8 @@ Implementadas em `password-validator.ts`:
 3. Pelo menos um especial entre ``!@#$%^&*()-+``.
 4. **Sem caracteres repetidos** (cada posição é única no conjunto de caracteres da string).
 5. **Nenhum whitespace** (`\s`) — presença invalida a senha.
-6. Comprimento ≤ `MAX_PASSWORD_LENGTH` (256).
+
+O enunciado do desafio **não** fixa tamanho máximo da senha; não há limite na camada de domínio. Na prática, o corpo JSON da requisição continua limitado na **borda HTTP** (`readJsonBody`, p.ex. 16 KiB), o que impõe um teto ao tamanho do campo `password` por requisição.
 
 ---
 
@@ -311,6 +323,7 @@ Trecho de `password-validator.test.ts`: valida uma regra específica com `node:t
 ```typescript
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { PasswordFailureReason } from "./password-failure-reason.js";
 import { validatePasswordPolicy } from "./password-validator.js";
 
 describe("validatePasswordPolicy", () => {
@@ -318,7 +331,7 @@ describe("validatePasswordPolicy", () => {
     const r = validatePasswordPolicy("Ab1!cdeffa");
     assert.equal(r.valid, false);
     if (!r.valid) {
-      assert.ok(r.reasons.includes("caracteres_repetidos"));
+      assert.ok(r.reasons.includes(PasswordFailureReason.CaracteresRepetidos));
     }
   });
 });

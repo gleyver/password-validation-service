@@ -1,13 +1,7 @@
 import { randomUUID } from "node:crypto";
+import type { LogFields, LogLevel, Logger } from "./logger.dto.js";
 
-export type LogLevel = "debug" | "info" | "warn" | "error";
-
-export type LogFields = Record<string, string | number | boolean | undefined>;
-
-export interface Logger {
-  child(fields: LogFields): Logger;
-  log(level: LogLevel, message: string, fields?: LogFields): void;
-}
+export type { LogFields, LogLevel, Logger } from "./logger.dto.js";
 
 function serialize(
   base: LogFields,
