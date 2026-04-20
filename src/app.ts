@@ -1,6 +1,9 @@
 import { createValidatePasswordUseCase } from "./composition-root.js";
 import { createHttpApp } from "./platform/http/http-server.js";
-import { writeJsonResponse } from "./platform/http/write-json-response.js";
+import {
+  HTTP_JSON_STATIC,
+  writeJsonUtf8,
+} from "./platform/http/write-json-response.js";
 import { createLogger, type Logger } from "./platform/logging/logger.js";
 import { createValidatePasswordHandler } from "./modules/password-validation/interfaces/http/validate-password.http.js";
 
@@ -21,7 +24,7 @@ export function buildApplication(options?: { logger?: Logger }) {
         method: "GET",
         path: "/health",
         handler: (_req, res) => {
-          writeJsonResponse(res, 200, { status: "ok" });
+          writeJsonUtf8(res, 200, HTTP_JSON_STATIC.healthOk);
         },
       },
       {

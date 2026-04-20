@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { ServerResponse } from "node:http";
-import { writeJsonResponse } from "./write-json-response.js";
+import { HTTP_JSON_STATIC, writeJsonResponse, writeJsonUtf8 } from "./write-json-response.js";
 
 function mockResponse(): {
   res: ServerResponse;
@@ -31,5 +31,12 @@ describe("writeJsonResponse", () => {
     assert.equal(captured.statusCode, 201);
     assert.equal(captured.contentType, "application/json; charset=utf-8");
     assert.deepEqual(JSON.parse(captured.body), { id: "x" });
+  });
+
+  it("writeJsonUtf8 envia corpo pré-serializado", () => {
+    const { res, captured } = mockResponse();
+    writeJsonUtf8(res, 404, HTTP_JSON_STATIC.errorNotFound);
+    assert.equal(captured.statusCode, 404);
+    assert.deepEqual(JSON.parse(captured.body), { error: "not_found" });
   });
 });

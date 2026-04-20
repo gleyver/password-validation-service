@@ -25,7 +25,14 @@ export async function readJsonBody<T = unknown>(
     }
     chunks.push(buf);
   }
-  const raw = Buffer.concat(chunks).toString("utf8").trim();
+  let raw: string;
+  if (chunks.length === 0) {
+    raw = "";
+  } else if (chunks.length === 1) {
+    raw = chunks[0].toString("utf8").trim();
+  } else {
+    raw = Buffer.concat(chunks).toString("utf8").trim();
+  }
   if (raw.length === 0) {
     return { ok: false, error: "empty_body" };
   }

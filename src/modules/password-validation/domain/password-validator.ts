@@ -13,40 +13,60 @@ export type {
   PasswordValidationSuccess,
 } from "./password-validator.dto.js";
 
-const HAS_DIGIT = /[0-9]/;
-const HAS_LOWERCASE = /[a-z]/;
-const HAS_UPPERCASE = /[A-Z]/;
+/** Mantém equivalência com a classe `\s` do ECMAScript (inclui Unicode). */
 const HAS_WHITESPACE = /\s/;
 
 const SPECIAL_SET = new Set<string>(ALLOWED_SPECIALS.split(""));
 
-function hasWhitespace(password: string): boolean {
-  return HAS_WHITESPACE.test(password);
-}
+type PolicyFlags = {
+  tooShort: boolean;
+  hasDigit: boolean;
+  hasLowercase: boolean;
+  hasUppercase: boolean;
+  hasAllowedSpecial: boolean;
+  hasUniqueCharacters: boolean;
+  hasWhitespace: boolean;
+};
 
-function hasUniqueCharacters(password: string): boolean {
-  return new Set(password).size === password.length;
-}
+/**
+ * Uma passada na senha: classes de caracteres ASCII, especiais permitidos e unicidade.
+ * Espaço em branco usa um único `\s` na string inteira para igualar a semântica anterior.
+ */
+function collectPolicyFlags(password: string): PolicyFlags {
+  const tooShort = password.length < MIN_LENGTH;
+  let hasDigit = false;
+  let hasLowercase = false;
+  let hasUppercase = false;
+  let hasAllowedSpecial = false;
+  let hasRepeat = false;
+  const seen = new Set<string>();
 
-function hasDigit(password: string): boolean {
-  return HAS_DIGIT.test(password);
-}
-
-function hasLowercase(password: string): boolean {
-  return HAS_LOWERCASE.test(password);
-}
-
-function hasUppercase(password: string): boolean {
-  return HAS_UPPERCASE.test(password);
-}
-
-function hasAllowedSpecial(password: string): boolean {
-  for (const char of password) {
-    if (SPECIAL_SET.has(char)) {
-      return true;
+  for (const c of password) {
+    if (seen.has(c)) {
+      hasRepeat = true;
+    } else {
+      seen.add(c);
+    }
+    if (c >= "0" && c <= "9") {
+      hasDigit = true;
+    } else if (c >= "a" && c <= "z") {
+      hasLowercase = true;
+    } else if (c >= "A" && c <= "Z") {
+      hasUppercase = true;
+    } else if (SPECIAL_SET.has(c)) {
+      hasAllowedSpecial = true;
     }
   }
-  return false;
+
+  return {
+    tooShort,
+    hasDigit,
+    hasLowercase,
+    hasUppercase,
+    hasAllowedSpecial,
+    hasUniqueCharacters: !hasRepeat,
+    hasWhitespace: HAS_WHITESPACE.test(password),
+  };
 }
 
 /**
@@ -54,26 +74,27 @@ function hasAllowedSpecial(password: string): boolean {
  * @remarks Não retorna no primeiro erro: permite expor várias dicas numa única resposta.
  */
 function collectFailureReasons(password: string): PasswordFailureReason[] {
+  const f = collectPolicyFlags(password);
   const reasons: PasswordFailureReason[] = [];
-  if (password.length < MIN_LENGTH) {
+  if (f.tooShort) {
     reasons.push(PasswordFailureReason.FaltaComprimentoMinimo);
   }
-  if (!hasDigit(password)) {
+  if (!f.hasDigit) {
     reasons.push(PasswordFailureReason.FaltaDigito);
   }
-  if (!hasLowercase(password)) {
+  if (!f.hasLowercase) {
     reasons.push(PasswordFailureReason.FaltaLetraMinuscula);
   }
-  if (!hasUppercase(password)) {
+  if (!f.hasUppercase) {
     reasons.push(PasswordFailureReason.FaltaLetraMaiuscula);
   }
-  if (!hasAllowedSpecial(password)) {
+  if (!f.hasAllowedSpecial) {
     reasons.push(PasswordFailureReason.FaltaCaractereEspecialPermitido);
   }
-  if (!hasUniqueCharacters(password)) {
+  if (!f.hasUniqueCharacters) {
     reasons.push(PasswordFailureReason.CaracteresRepetidos);
   }
-  if (hasWhitespace(password)) {
+  if (f.hasWhitespace) {
     reasons.push(PasswordFailureReason.EspacoEmBrancoNaoPermitido);
   }
   return reasons;

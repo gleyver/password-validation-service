@@ -1,7 +1,11 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Logger } from "../../../../platform/logging/logger.js";
 import { readJsonBody } from "../../../../platform/http/json-body.js";
-import { writeJsonResponse } from "../../../../platform/http/write-json-response.js";
+import {
+  HTTP_JSON_STATIC,
+  writeJsonResponse,
+  writeJsonUtf8,
+} from "../../../../platform/http/write-json-response.js";
 import type { ValidatePasswordUseCase } from "../../application/validate-password.use-case.js";
 import type { ValidatePasswordSuccessJsonBody } from "./validate-password-http.dto.js";
 import { validatePasswordRequestBodySchema } from "./validate-password-body.schema.js";
@@ -24,33 +28,35 @@ export function createValidatePasswordHandler(useCase: ValidatePasswordUseCase) 
       ctx.logger.log("warn", "validate_password_body_rejected", {
         reason: parsed.error,
       });
-      const statusCode = parsed.error === "payload_too_large" ? 413 : 400;
-      writeJsonResponse(res, statusCode, { error: parsed.error });
+      if (parsed.error === "payload_too_large") {
+        writeJsonUtf8(res, 413, HTTP_JSON_STATIC.errorPayloadTooLarge);
+      } else if (parsed.error === "empty_body") {
+        writeJsonUtf8(res, 400, HTTP_JSON_STATIC.errorEmptyBody);
+      } else {
+        writeJsonUtf8(res, 400, HTTP_JSON_STATIC.errorInvalidJson);
+      }
       return;
     }
     const body = validatePasswordRequestBodySchema.safeParse(parsed.value);
     if (!body.success) {
       ctx.logger.log("warn", "validate_password_invalid_password_field");
-      writeJsonResponse(res, 400, { error: "invalid_password_field" });
+      writeJsonUtf8(res, 400, HTTP_JSON_STATIC.errorInvalidPasswordField);
       return;
     }
     const { password, includeAssistantHints } = body.data;
     const passwordLength = password.length;
-    ctx.logger.log("info", "validate_password_request", {
-      passwordLength,
-      includeAssistantHints,
-    });
-    const output = await useCase.execute({
+    const payload: ValidatePasswordSuccessJsonBody = await useCase.execute({
       password,
       includeAssistantHints,
     });
-    ctx.logger.log("info", "validate_password_response", {
-      valid: output.valid,
-      hintsCount: output.assistantHints?.length ?? 0,
+
+    ctx.logger.log("info", "validate_password", {
+      passwordLength,
+      includeAssistantHints,
+      valid: payload.valid,
+      hintsCount: payload.assistantHints?.length ?? 0,
     });
-    const payload: ValidatePasswordSuccessJsonBody = output.assistantHints
-      ? { valid: output.valid, assistantHints: output.assistantHints }
-      : { valid: output.valid };
+
     writeJsonResponse(res, 200, payload);
   };
 }

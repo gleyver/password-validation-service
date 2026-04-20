@@ -31,13 +31,15 @@ export class DeterministicPasswordAssistant implements PasswordAssistantPort {
    * @param reasonsWhenInvalid - Vazio quando a senha é válida e o cliente pediu dicas (mensagem de sucesso).
    * @returns Dicas na ordem dos motivos ou uma linha confirmando que a política foi atendida.
    */
-  async enrichWithHints(
+  enrichWithHints(
     _password: string,
     reasonsWhenInvalid: readonly PasswordFailureReason[],
   ): Promise<readonly string[]> {
     if (reasonsWhenInvalid.length === 0) {
-      return ["Senha atende a todas as regras configuradas nesta API."];
+      return Promise.resolve([
+        "Senha atende a todas as regras configuradas nesta API.",
+      ]);
     }
-    return reasonsWhenInvalid.map(messageForReason);
+    return Promise.resolve(reasonsWhenInvalid.map(messageForReason));
   }
 }

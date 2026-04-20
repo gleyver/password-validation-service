@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse, type Server } from "node:http";
 import { newRequestId, type Logger } from "../logging/logger.js";
 import type { HttpServerApp, RouteHandler } from "./http-server.dto.js";
-import { writeJsonResponse } from "./write-json-response.js";
+import { HTTP_JSON_STATIC, writeJsonUtf8 } from "./write-json-response.js";
 
 export type { HttpServerApp, RouteHandler } from "./http-server.dto.js";
 
@@ -49,7 +49,7 @@ export function createHttpApp(options: {
     );
     if (!match) {
       logger.log("warn", "http_route_not_found", { method, path });
-      writeJsonResponse(res, 404, { error: "not_found" });
+      writeJsonUtf8(res, 404, HTTP_JSON_STATIC.errorNotFound);
       return;
     }
     try {
@@ -59,7 +59,7 @@ export function createHttpApp(options: {
         error: err instanceof Error ? err.message : "unknown",
       });
       if (!res.headersSent) {
-        writeJsonResponse(res, 500, { error: "internal_error" });
+        writeJsonUtf8(res, 500, HTTP_JSON_STATIC.errorInternal);
       }
     }
   };
